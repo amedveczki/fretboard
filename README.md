@@ -4,8 +4,9 @@ Interaktív hangfelismerő gyakorló a fogólapon: válaszd ki a célhang össze
 helyét basszusgitáron, gitáron vagy ukulelén. Jó találatnál zöld jelölés,
 rossznál finom piros villanás, és meghallod a helyes hangot is.
 
-Az egész alkalmazás egyetlen `index.html` fájl – nincs build lépés, nincs
-függőség. Elég megnyitni egy böngészőben.
+Az alkalmazás statikus weboldal – nincs build lépés, nincs függőség. Elég
+megnyitni egy böngészőben. **PWA**: telepíthető és internet nélkül is
+működik (service worker + manifest).
 
 ## Élő verzió
 
@@ -39,9 +40,20 @@ automatikusan kiteszi az oldalt.
 
 Töltsd le az `index.html`-t és nyisd meg a böngésződben – ennyi.
 
-## Telepítés a kezdőképernyőre (iPad / telefon)
+## Telepítés appként (iPad / telefon / asztali gép)
 
-Mivel ez egy egyszerű weboldal, a böngésző **„Hozzáadás a kezdőképernyőhöz”**
-funkciójával ikonként is elmentheted, és (majdnem) appként használhatod.
-A hang csak egy érintés után indul – ezért kell egyszer a *„Hang
-bekapcsolása”* gomb.
+Az oldal PWA, ezért a böngésző **„Hozzáadás a kezdőképernyőhöz”** / **„App
+telepítése”** funkciójával külön ikonként, teljes képernyős appként
+telepítheted. Telepítés után **offline is működik**. A hang csak egy
+érintés után indul – ezért kell egyszer a *„Hang bekapcsolása”* gomb.
+
+> Megjegyzés: a service worker és a PWA-telepítés csak `https://`-en (azaz a
+> GitHub Pages címen) aktív, `file://`-ről megnyitva nem.
+
+## Fájlok
+
+- `index.html` – maga az alkalmazás
+- `manifest.webmanifest` – PWA leíró (név, ikonok, színek)
+- `sw.js` – service worker az offline gyorsítótárhoz
+- `icons/`, `favicon.ico` – ikonok és favicon
+- `.github/workflows/deploy.yml` – automatikus Pages deploy
