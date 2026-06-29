@@ -80,12 +80,12 @@
     .message.bad { color: var(--bad); }
 
     .board-wrap { overflow-x: auto; overflow-y: hidden; border-radius: var(--radius); border: 1px solid var(--line); background: linear-gradient(90deg, var(--wood-1), var(--wood-2)); box-shadow: var(--shadow); -webkit-overflow-scrolling: touch; }
-    .fretboard { display: inline-grid; grid-template-columns: 54px repeat(var(--fretsPlusOne), var(--cell-w)); min-width: 100%; position: relative; }
+    .fretboard { display: inline-grid; grid-template-columns: 54px repeat(13, 58px); min-width: 100%; position: relative; }
     .fret-number, .string-name { height: 32px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.72); font-weight: 700; font-size: 13px; background: rgba(0,0,0,.18); border-bottom: 1px solid rgba(255,255,255,.1); }
     .string-name { color: transparent; }
     .show-labels .string-name { color: rgba(255,255,255,.72); }
     .string-name { height: var(--cell-h); border-right: 2px solid rgba(255,255,255,.26); position: sticky; left: 0; z-index: 3; background: rgba(22,16,14,.86); backdrop-filter: blur(8px); }
-    .cell { width: var(--cell-w); height: var(--cell-h); position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; border-right: 2px solid var(--fret); border-bottom: 1px solid rgba(255,255,255,.10); background: transparent; color: var(--text); cursor: pointer; touch-action: manipulation; }
+    .cell { height: var(--cell-h); position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; border-right: 2px solid var(--fret); border-bottom: 1px solid rgba(255,255,255,.10); background: transparent; color: var(--text); cursor: pointer; touch-action: manipulation; }
     .cell.fret0 { background: rgba(0,0,0,.18); border-right: 8px solid rgba(245,245,245,.70); }
     .cell::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--string-size, 3px); transform: translateY(-50%); background: linear-gradient(180deg, rgba(255,255,255,.95), var(--string)); box-shadow: 0 1px 2px rgba(0,0,0,.45); }
     .marker-layer { position: absolute; left: 54px; top: 32px; right: 0; bottom: 0; z-index: 1; pointer-events: none; }
@@ -135,9 +135,9 @@
         <div class="control">
           <label for="instrument">Hangszer / hangolás</label>
           <select id="instrument">
-            <option value="bass4" selected>4 húros basszus — E A D G</option>
+            <option value="bass4">4 húros basszus — E A D G</option>
             <option value="bass5">5 húros basszus — B E A D G</option>
-            <option value="guitar6">Gitár — E A D G B E</option>
+            <option value="guitar6" selected>Gitár — E A D G B E</option>
             <option value="ukulele">Ukulele — G C E A</option>
           </select>
         </div>
@@ -245,6 +245,7 @@
     let targetPC = 2;
     let targetCells = new Set();
     let selectedCorrect = new Set();
+    let cellKeyToCanonical = {};
     let stats = { hits: 0, misses: 0 };
     let showLabels = false;
     let lastTargetPC = null;
@@ -342,7 +343,28 @@
       return els.noteSet.value === 'natural' ? NATURAL_PCS.slice() : Array.from({length: 12}, (_, i) => i);
     }
 
-    function renderFretMarkers(frets) {
+    function computeFretWidths(frets) {
+      const w = window.innerWidth;
+      const minW = w <= 520 ? 26 : w <= 860 ? 30 : 36;
+      const widths = [];
+      for (let n = 0; n <= frets; n++) {
+        const k = n === 0 ? 1 : n;
+        widths[n] = Math.round(minW * Math.pow(2, (frets - k) / 12));
+      }
+      return widths;
+    }
+
+    function fretCenters(fretWidths) {
+      const centers = [];
+      let cum = 0;
+      for (let n = 0; n < fretWidths.length; n++) {
+        centers[n] = cum + fretWidths[n] / 2;
+        cum += fretWidths[n];
+      }
+      return centers;
+    }
+
+    function renderFretMarkers(frets, centers) {
       const layer = document.createElement('div');
       layer.className = 'marker-layer';
 
@@ -350,7 +372,7 @@
         if (SINGLE_FRET_MARKERS.has(fret)) {
           const marker = document.createElement('span');
           marker.className = 'fret-marker';
-          marker.style.left = `calc((${fret} + 0.5) * var(--cell-w))`;
+          marker.style.left = centers[fret] + 'px';
           marker.style.top = '50%';
           layer.appendChild(marker);
         }
@@ -359,7 +381,7 @@
           ['double-a', 'double-b'].forEach(cls => {
             const marker = document.createElement('span');
             marker.className = `fret-marker ${cls}`;
-            marker.style.left = `calc((${fret} + 0.5) * var(--cell-w))`;
+            marker.style.left = centers[fret] + 'px';
             layer.appendChild(marker);
           });
         }
@@ -400,10 +422,13 @@
     function renderBoard() {
       const frets = parseInt(els.frets.value, 10);
       const displayed = getDisplayedTuning();
+      const fretWidths = computeFretWidths(frets);
+      const centers = fretCenters(fretWidths);
       targetCells.clear();
       selectedCorrect.clear();
+      cellKeyToCanonical = {};
       els.fretboard.innerHTML = '';
-      els.fretboard.style.setProperty('--fretsPlusOne', frets + 1);
+      els.fretboard.style.gridTemplateColumns = '54px ' + fretWidths.map(w => w + 'px').join(' ');
       els.fretboard.classList.toggle('show-labels', showLabels);
 
       const corner = document.createElement('div');
@@ -447,7 +472,7 @@
         }
       });
 
-      renderFretMarkers(frets);
+      renderFretMarkers(frets, centers);
       collectTargetCells();
       renderChallengeText();
       updateCounts();
@@ -455,9 +480,27 @@
 
     function collectTargetCells() {
       targetCells.clear();
+      cellKeyToCanonical = {};
+      const frets = parseInt(els.frets.value, 10);
       document.querySelectorAll('.cell').forEach(cell => {
-        if (Number(cell.dataset.pc) === targetPC) targetCells.add(cell.dataset.key);
+        if (Number(cell.dataset.pc) === targetPC) {
+          const key = cell.dataset.key;
+          const fret = Number(cell.dataset.fret);
+          // Fret 12 and fret 0 on the same string are the same pitch class position —
+          // finding one is enough, so they share a canonical key.
+          const canonical = (fret === 12 && frets >= 12) ? `${cell.dataset.stringIndex}-0` : key;
+          cellKeyToCanonical[key] = canonical;
+          targetCells.add(canonical);
+        }
       });
+    }
+
+    function markTwin(cell) {
+      const fret = Number(cell.dataset.fret);
+      const twinFret = fret === 0 ? 12 : fret === 12 ? 0 : -1;
+      if (twinFret < 0) return;
+      const twin = document.querySelector(`.cell[data-key="${cell.dataset.stringIndex}-${twinFret}"]`);
+      if (twin && Number(twin.dataset.pc) === targetPC) twin.classList.add('correct');
     }
 
     function updateCounts() {
@@ -490,10 +533,12 @@
       playMidi(midi, 0.48);
 
       if (pc === targetPC) {
-        if (!selectedCorrect.has(cell.dataset.key)) {
-          selectedCorrect.add(cell.dataset.key);
+        const canonical = cellKeyToCanonical[cell.dataset.key];
+        if (!selectedCorrect.has(canonical)) {
+          selectedCorrect.add(canonical);
           stats.hits += 1;
           cell.classList.add('correct');
+          markTwin(cell);
           setMessage(`Jó: ${noteName(pc)}.`, 'good');
           updateCounts();
           persist();
@@ -503,7 +548,7 @@
             setTimeout(chooseNewTarget, 850);
           }
         } else {
-          setMessage('Ezt a helyet már bejelölted.', '');
+          setMessage('Ezt a pozíciót már megtaláltad.', '');
         }
       } else {
         stats.misses += 1;
