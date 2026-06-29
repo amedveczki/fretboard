@@ -1,0 +1,42 @@
+name: Deploy to GitHub Pages
+
+# A repó tartalmát (statikus HTML) feltölti a GitHub Pages-re.
+# Fut minden push-nál a fő ágra, illetve kézzel is indítható.
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Csak a Pages deploy-hoz szükséges jogosultságok.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Egyszerre csak egy deploy fusson; a futót nem szakítja meg.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # A repó gyökerét töltjük fel; az index.html itt van.
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

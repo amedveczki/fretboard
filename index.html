@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="description" content="Fretboard Note Trainer – interaktív hangfelismerő gyakorló basszusgitárhoz, gitárhoz és ukulelehez. Keresd meg a célhang összes helyét a fogólapon." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fretboard Trainer" />
+  <title>Fretboard Note Trainer</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2f;
+      --panel-2: #18223a;
+      --text: #eef2ff;
+      --muted: #aab4d4;
+      --line: rgba(255,255,255,.12);
+      --wood-1: #5b3a26;
+      --wood-2: #7b4f33;
+      --fret: rgba(255,255,255,.36);
+      --string: rgba(230,230,230,.78);
+      --accent: #7dd3fc;
+      --good: #34d399;
+      --bad: #fb7185;
+      --warn: #fbbf24;
+      --shadow: 0 12px 34px rgba(0,0,0,.38);
+      --radius: 18px;
+      --cell-w: 68px;
+      --cell-h: 58px;
+      color-scheme: dark;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at 20% 0%, #172554 0%, var(--bg) 38%, #060914 100%); color: var(--text); }
+    body { padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom); }
+    button, select, input { font: inherit; }
+
+    .app { max-width: 1180px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding: 18px 2px 14px; }
+    h1 { margin: 0; font-size: clamp(28px, 4vw, 44px); line-height: 1.02; letter-spacing: -.04em; }
+    .subtitle { margin: 8px 0 0; color: var(--muted); max-width: 760px; font-size: 15px; }
+
+    .status-pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.06); color: var(--muted); white-space: nowrap; }
+    .led { width: 10px; height: 10px; border-radius: 999px; background: var(--bad); box-shadow: 0 0 0 4px rgba(251,113,133,.12); }
+    .led.on { background: var(--good); box-shadow: 0 0 0 4px rgba(52,211,153,.12); }
+
+    .panel { background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.035)); border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: var(--radius); }
+    .controls { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; padding: 12px; }
+    .control { display: flex; flex-direction: column; gap: 6px; }
+    label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    select, input[type="number"] { width: 100%; color: var(--text); background: rgba(8,13,29,.9); border: 1px solid var(--line); border-radius: 12px; padding: 12px 11px; outline: none; min-height: 46px; }
+    select:focus, input:focus { border-color: rgba(125,211,252,.75); box-shadow: 0 0 0 3px rgba(125,211,252,.12); }
+
+    .button-row { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 12px 12px; }
+    .btn { border: 1px solid var(--line); border-radius: 14px; padding: 12px 15px; min-height: 46px; color: var(--text); background: rgba(255,255,255,.08); cursor: pointer; box-shadow: none; touch-action: manipulation; }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { border-color: rgba(125,211,252,.5); background: linear-gradient(180deg, rgba(125,211,252,.26), rgba(125,211,252,.10)); }
+    .btn.good { border-color: rgba(52,211,153,.45); background: rgba(52,211,153,.14); }
+    .btn.warn { border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.12); }
+
+    .challenge { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 14px 0; padding: 16px; }
+    .target-line { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; }
+    .target-note { font-size: clamp(54px, 10vw, 96px); font-weight: 900; letter-spacing: -.05em; line-height: .92; color: var(--text); text-shadow: 0 0 28px rgba(125,211,252,.25); }
+    .target-meta { color: var(--muted); }
+    .score { display: grid; grid-template-columns: repeat(3, auto); gap: 8px; text-align: center; }
+    .score div { min-width: 82px; padding: 10px; border-radius: 14px; background: rgba(8,13,29,.55); border: 1px solid var(--line); }
+    .score strong { display: block; font-size: 24px; line-height: 1; }
+    .score span { color: var(--muted); font-size: 12px; }
+
+    .message { min-height: 34px; padding: 0 4px 10px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .message.good { color: var(--good); }
+    .message.bad { color: var(--bad); }
+
+    .board-wrap { overflow-x: auto; overflow-y: hidden; border-radius: var(--radius); border: 1px solid var(--line); background: linear-gradient(90deg, var(--wood-1), var(--wood-2)); box-shadow: var(--shadow); -webkit-overflow-scrolling: touch; }
+    .fretboard { display: inline-grid; grid-template-columns: 54px repeat(var(--fretsPlusOne), var(--cell-w)); min-width: 100%; position: relative; }
+    .fret-number, .string-name { height: 32px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.72); font-weight: 700; font-size: 13px; background: rgba(0,0,0,.18); border-bottom: 1px solid rgba(255,255,255,.1); }
+    .string-name { color: transparent; }
+    .show-labels .string-name { color: rgba(255,255,255,.72); }
+    .string-name { height: var(--cell-h); border-right: 2px solid rgba(255,255,255,.26); position: sticky; left: 0; z-index: 3; background: rgba(22,16,14,.86); backdrop-filter: blur(8px); }
+    .cell { width: var(--cell-w); height: var(--cell-h); position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; border-right: 2px solid var(--fret); border-bottom: 1px solid rgba(255,255,255,.10); background: transparent; color: var(--text); cursor: pointer; touch-action: manipulation; }
+    .cell.fret0 { background: rgba(0,0,0,.18); border-right: 8px solid rgba(245,245,245,.70); }
+    .cell::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--string-size, 3px); transform: translateY(-50%); background: linear-gradient(180deg, rgba(255,255,255,.95), var(--string)); box-shadow: 0 1px 2px rgba(0,0,0,.45); }
+    .marker-layer { position: absolute; left: 54px; top: 32px; right: 0; bottom: 0; z-index: 1; pointer-events: none; }
+    .fret-marker { position: absolute; width: 22px; height: 22px; border-radius: 999px; transform: translate(-50%, -50%); background: rgba(255,255,255,.48); border: 2px solid rgba(255,255,255,.72); box-shadow: 0 0 0 5px rgba(0,0,0,.10), inset 0 1px 5px rgba(255,255,255,.35); }
+    .fret-marker.double-a { top: 35%; }
+    .fret-marker.double-b { top: 65%; }
+    .note-dot { position: relative; z-index: 2; min-width: 36px; height: 36px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; border: 1px solid rgba(255,255,255,.22); background: rgba(9,14,28,.78); color: rgba(255,255,255,.76); transform: scale(.94); opacity: 0; transition: transform .12s ease, opacity .12s ease, background .12s ease; }
+    .show-labels .note-dot { opacity: .62; }
+    .cell.correct .note-dot { opacity: 1; background: rgba(52,211,153,.92); color: #022c22; transform: scale(1.03); box-shadow: 0 0 0 5px rgba(52,211,153,.18); }
+    .cell.wrong .note-dot { opacity: 1; background: rgba(251,113,133,.94); color: #4c0519; transform: scale(1.05); box-shadow: 0 0 0 7px rgba(251,113,133,.18); }
+    .cell.flash { animation: redFlash 430ms ease-out; }
+    @keyframes redFlash { 0% { background: rgba(251,113,133,.46); } 100% { background: transparent; } }
+    .cell.preview-correct .note-dot { opacity: 1; background: rgba(125,211,252,.95); color: #082f49; transform: scale(1.04); box-shadow: 0 0 0 5px rgba(125,211,252,.18); }
+
+    .footer { margin: 14px 0 0; padding: 13px 4px; color: var(--muted); font-size: 13px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; border: 1px solid var(--line); border-bottom-width: 2px; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,.08); color: var(--text); }
+
+    @media (max-width: 860px) {
+      body { padding-left: 10px; padding-right: 10px; }
+      header { flex-direction: column; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .challenge { grid-template-columns: 1fr; }
+      .score { grid-template-columns: repeat(3, 1fr); }
+      .score div { min-width: 0; }
+      :root { --cell-w: 58px; --cell-h: 54px; }
+    }
+
+    @media (max-width: 520px) {
+      .controls { grid-template-columns: 1fr; }
+      .button-row .btn { flex: 1 1 100%; }
+      :root { --cell-w: 52px; --cell-h: 52px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Fretboard Note Trainer</h1>
+        <p class="subtitle">Válaszd ki a célhang összes helyét a fogólapon. Jó találatnál zöld jelölés, rossznál finom piros villanás, majd meghallod a helyes hangot is.</p>
+      </div>
+      <div class="status-pill" id="audioStatus"><span class="led" id="audioLed"></span><span id="audioText">Hang nincs bekapcsolva</span></div>
+    </header>
+
+    <section class="panel" aria-label="Beállítások">
+      <div class="controls">
+        <div class="control">
+          <label for="instrument">Hangszer / hangolás</label>
+          <select id="instrument">
+            <option value="bass4" selected>4 húros basszus — E A D G</option>
+            <option value="bass5">5 húros basszus — B E A D G</option>
+            <option value="guitar6">Gitár — E A D G B E</option>
+            <option value="ukulele">Ukulele — G C E A</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="frets">Bundok száma</label>
+          <select id="frets">
+            <option value="12" selected>12</option>
+            <option value="15">15</option>
+            <option value="17">17</option>
+            <option value="20">20</option>
+            <option value="24">24</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="noteSet">Célhangok</label>
+          <select id="noteSet">
+            <option value="natural" selected>Csak törzshangok</option>
+            <option value="all">Mind a 12 hang</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="accidentalStyle">Módosított hangok</label>
+          <select id="accidentalStyle">
+            <option value="sharp" selected>Keresztes: C#</option>
+            <option value="flat">Bés: Db</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="notation">Hangnevek</label>
+          <select id="notation">
+            <option value="en" selected>Angol / nemzetközi: B</option>
+            <option value="hu">Magyar: H, B = Bb</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="layout">Elrendezés</label>
+          <select id="layout">
+            <option value="lowBottom" selected>Mély húr alul</option>
+            <option value="lowTop">Mély húr felül</option>
+          </select>
+        </div>
+      </div>
+      <div class="button-row">
+        <button class="btn primary" id="enableAudio">Hang bekapcsolása</button>
+        <button class="btn good" id="newChallenge">Új hang</button>
+        <button class="btn" id="replayTarget">Célhang lejátszása</button>
+        <button class="btn" id="toggleLabels">Hangnevek mutatása</button>
+        <button class="btn warn" id="resetStats">Statisztika nullázása</button>
+      </div>
+    </section>
+
+    <section class="panel challenge" aria-label="Feladat">
+      <div>
+        <div class="target-line">
+          <span class="target-note" id="targetNote">D</span>
+          <span class="target-meta" id="targetMeta">Keresd meg minden húron / bundon.</span>
+        </div>
+      </div>
+      <div class="score" aria-label="Statisztika">
+        <div><strong id="foundCount">0/0</strong><span>megtalálva</span></div>
+        <div><strong id="hitCount">0</strong><span>jó</span></div>
+        <div><strong id="missCount">0</strong><span>hiba</span></div>
+      </div>
+    </section>
+
+    <div class="message" id="message">Koppints a „Hang bekapcsolása” gombra, majd válassz hangokat a fogólapon.</div>
+
+    <section class="board-wrap" aria-label="Fogólap" id="boardWrap">
+      <div class="fretboard" id="fretboard"></div>
+    </section>
+
+    <p class="footer">Tipp: iPaden a hang csak felhasználói érintés után indulhat el, ezért kell egyszer a <span class="kbd">Hang bekapcsolása</span>. A beállításokat a böngésző lokálisan megjegyzi.</p>
+  </main>
+
+  <script>
+    const NOTES = [
+      { pc: 0, enSharp: 'C',  enFlat: 'C',  huSharp: 'C',        huFlat: 'C' },
+      { pc: 1, enSharp: 'C#', enFlat: 'Db', huSharp: 'Cisz',     huFlat: 'Desz' },
+      { pc: 2, enSharp: 'D',  enFlat: 'D',  huSharp: 'D',        huFlat: 'D' },
+      { pc: 3, enSharp: 'D#', enFlat: 'Eb', huSharp: 'Disz',     huFlat: 'Esz' },
+      { pc: 4, enSharp: 'E',  enFlat: 'E',  huSharp: 'E',        huFlat: 'E' },
+      { pc: 5, enSharp: 'F',  enFlat: 'F',  huSharp: 'F',        huFlat: 'F' },
+      { pc: 6, enSharp: 'F#', enFlat: 'Gb', huSharp: 'Fisz',     huFlat: 'Gesz' },
+      { pc: 7, enSharp: 'G',  enFlat: 'G',  huSharp: 'G',        huFlat: 'G' },
+      { pc: 8, enSharp: 'G#', enFlat: 'Ab', huSharp: 'Gisz',     huFlat: 'Asz' },
+      { pc: 9, enSharp: 'A',  enFlat: 'A',  huSharp: 'A',        huFlat: 'A' },
+      { pc:10, enSharp: 'A#', enFlat: 'Bb', huSharp: 'Aisz',     huFlat: 'B' },
+      { pc:11, enSharp: 'B',  enFlat: 'B',  huSharp: 'H',        huFlat: 'H' }
+    ];
+
+    const INSTRUMENTS = {
+      bass4:  { name: '4 húros basszus', tuning: [{ name: 'E', midi: 40 }, { name: 'A', midi: 45 }, { name: 'D', midi: 50 }, { name: 'G', midi: 55 }] },
+      bass5:  { name: '5 húros basszus', tuning: [{ name: 'B', midi: 35 }, { name: 'E', midi: 40 }, { name: 'A', midi: 45 }, { name: 'D', midi: 50 }, { name: 'G', midi: 55 }] },
+      guitar6:{ name: 'Gitár', tuning: [{ name: 'E', midi: 40 }, { name: 'A', midi: 45 }, { name: 'D', midi: 50 }, { name: 'G', midi: 55 }, { name: 'B', midi: 59 }, { name: 'E', midi: 64 }] },
+      ukulele:{ name: 'Ukulele', tuning: [{ name: 'G', midi: 67 }, { name: 'C', midi: 60 }, { name: 'E', midi: 64 }, { name: 'A', midi: 69 }] }
+    };
+
+    const NATURAL_PCS = [0, 2, 4, 5, 7, 9, 11];
+    const SINGLE_FRET_MARKERS = new Set([3, 5, 7, 9, 15, 17, 19, 21]);
+    const DOUBLE_FRET_MARKERS = new Set([12, 24]);
+    const STORAGE_KEY = 'fretboard-note-trainer-v3';
+
+    let audioCtx = null;
+    let audioReady = false;
+    let targetPC = 2;
+    let targetCells = new Set();
+    let selectedCorrect = new Set();
+    let stats = { hits: 0, misses: 0 };
+    let showLabels = false;
+    let lastTargetPC = null;
+
+    const els = {
+      instrument: document.getElementById('instrument'),
+      frets: document.getElementById('frets'),
+      noteSet: document.getElementById('noteSet'),
+      accidentalStyle: document.getElementById('accidentalStyle'),
+      notation: document.getElementById('notation'),
+      layout: document.getElementById('layout'),
+      enableAudio: document.getElementById('enableAudio'),
+      newChallenge: document.getElementById('newChallenge'),
+      replayTarget: document.getElementById('replayTarget'),
+      toggleLabels: document.getElementById('toggleLabels'),
+      resetStats: document.getElementById('resetStats'),
+      audioStatus: document.getElementById('audioStatus'),
+      audioLed: document.getElementById('audioLed'),
+      audioText: document.getElementById('audioText'),
+      targetNote: document.getElementById('targetNote'),
+      targetMeta: document.getElementById('targetMeta'),
+      foundCount: document.getElementById('foundCount'),
+      hitCount: document.getElementById('hitCount'),
+      missCount: document.getElementById('missCount'),
+      message: document.getElementById('message'),
+      fretboard: document.getElementById('fretboard'),
+    };
+
+    function noteName(pc, preferFlat = false) {
+      const n = NOTES[((pc % 12) + 12) % 12];
+      const notation = els.notation.value;
+      const accidental = preferFlat || els.accidentalStyle.value === 'flat' ? 'Flat' : 'Sharp';
+      return n[notation + accidental];
+    }
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    async function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state !== 'running') await audioCtx.resume();
+      audioReady = true;
+      updateAudioStatus();
+    }
+
+    function updateAudioStatus() {
+      els.audioLed.classList.toggle('on', audioReady);
+      els.audioText.textContent = audioReady ? 'Hang bekapcsolva' : 'Hang nincs bekapcsolva';
+      els.enableAudio.textContent = audioReady ? 'Hang újraaktiválása' : 'Hang bekapcsolása';
+    }
+
+    function playMidi(midi, duration = 0.55, velocity = 1) {
+      if (!audioReady || !audioCtx) return;
+      const now = audioCtx.currentTime;
+      const out = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const g1 = audioCtx.createGain();
+      const g2 = audioCtx.createGain();
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1700, now);
+      filter.frequency.exponentialRampToValueAtTime(780, now + duration);
+      out.gain.setValueAtTime(0.0001, now);
+      out.gain.exponentialRampToValueAtTime(0.16 * velocity, now + 0.018);
+      out.gain.exponentialRampToValueAtTime(0.07 * velocity, now + 0.14);
+      out.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc1.type = 'triangle';
+      osc2.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(midiToFreq(midi), now);
+      osc2.frequency.setValueAtTime(midiToFreq(midi) * 0.997, now);
+      g1.gain.value = 0.9;
+      g2.gain.value = 0.22;
+
+      osc1.connect(g1); osc2.connect(g2);
+      g1.connect(filter); g2.connect(filter);
+      filter.connect(out); out.connect(audioCtx.destination);
+      osc1.start(now); osc2.start(now);
+      osc1.stop(now + duration + 0.04); osc2.stop(now + duration + 0.04);
+    }
+
+    function getTuning() {
+      return INSTRUMENTS[els.instrument.value].tuning.map((s, index) => ({...s, index}));
+    }
+
+    function getDisplayedTuning() {
+      const tuning = getTuning();
+      return els.layout.value === 'lowBottom' ? tuning.slice().reverse() : tuning;
+    }
+
+    function getAllowedTargets() {
+      return els.noteSet.value === 'natural' ? NATURAL_PCS.slice() : Array.from({length: 12}, (_, i) => i);
+    }
+
+    function renderFretMarkers(frets) {
+      const layer = document.createElement('div');
+      layer.className = 'marker-layer';
+
+      for (let fret = 1; fret <= frets; fret++) {
+        if (SINGLE_FRET_MARKERS.has(fret)) {
+          const marker = document.createElement('span');
+          marker.className = 'fret-marker';
+          marker.style.left = `calc((${fret} + 0.5) * var(--cell-w))`;
+          marker.style.top = '50%';
+          layer.appendChild(marker);
+        }
+
+        if (DOUBLE_FRET_MARKERS.has(fret)) {
+          ['double-a', 'double-b'].forEach(cls => {
+            const marker = document.createElement('span');
+            marker.className = `fret-marker ${cls}`;
+            marker.style.left = `calc((${fret} + 0.5) * var(--cell-w))`;
+            layer.appendChild(marker);
+          });
+        }
+      }
+
+      els.fretboard.appendChild(layer);
+    }
+
+    function chooseNewTarget() {
+      const allowed = getAllowedTargets();
+      const current = targetPC;
+      let next = allowed[Math.floor(Math.random() * allowed.length)];
+      if (allowed.length > 1) {
+        while (next === current) next = allowed[Math.floor(Math.random() * allowed.length)];
+      }
+      lastTargetPC = current;
+      targetPC = next;
+      selectedCorrect.clear();
+      collectTargetCells();
+      clearCellStates();
+      renderChallengeText();
+      updateCounts();
+      playRepresentativeTarget();
+    }
+
+    function renderChallengeText() {
+      els.targetNote.textContent = noteName(targetPC);
+      const count = targetCells.size;
+      els.targetMeta.textContent = count ? `Jelöld be az összes ${noteName(targetPC)} helyet. Találatok: ${count}.` : 'Jelöld be a célhang összes helyét.';
+    }
+
+    function clearCellStates() {
+      document.querySelectorAll('.cell.correct, .cell.wrong, .cell.flash, .cell.preview-correct').forEach(cell => {
+        cell.classList.remove('correct', 'wrong', 'flash', 'preview-correct');
+      });
+    }
+
+    function renderBoard() {
+      const frets = parseInt(els.frets.value, 10);
+      const displayed = getDisplayedTuning();
+      targetCells.clear();
+      selectedCorrect.clear();
+      els.fretboard.innerHTML = '';
+      els.fretboard.style.setProperty('--fretsPlusOne', frets + 1);
+      els.fretboard.classList.toggle('show-labels', showLabels);
+
+      const corner = document.createElement('div');
+      corner.className = 'fret-number';
+      corner.textContent = 'Húr';
+      els.fretboard.appendChild(corner);
+      for (let fret = 0; fret <= frets; fret++) {
+        const label = document.createElement('div');
+        label.className = 'fret-number';
+        label.textContent = fret === 0 ? '0' : String(fret);
+        els.fretboard.appendChild(label);
+      }
+
+      displayed.forEach((string, row) => {
+        const label = document.createElement('div');
+        label.className = 'string-name';
+        label.textContent = noteName(string.midi % 12);
+        els.fretboard.appendChild(label);
+
+        for (let fret = 0; fret <= frets; fret++) {
+          const midi = string.midi + fret;
+          const pc = ((midi % 12) + 12) % 12;
+          const key = `${string.index}-${fret}`;
+          const cell = document.createElement('button');
+          cell.className = 'cell' + (fret === 0 ? ' fret0' : '');
+          cell.type = 'button';
+          cell.dataset.key = key;
+          cell.dataset.midi = String(midi);
+          cell.dataset.pc = String(pc);
+          cell.dataset.stringIndex = String(string.index);
+          cell.dataset.fret = String(fret);
+          cell.style.setProperty('--string-size', `${Math.max(2, 5 - row * 0.55)}px`);
+          cell.setAttribute('aria-label', `${noteName(pc)} hang, ${fret}. bund, ${noteName(string.midi % 12)} húr`);
+
+          const dot = document.createElement('span');
+          dot.className = 'note-dot';
+          dot.textContent = noteName(pc);
+          cell.appendChild(dot);
+          cell.addEventListener('click', () => handleCellClick(cell));
+          els.fretboard.appendChild(cell);
+        }
+      });
+
+      renderFretMarkers(frets);
+      collectTargetCells();
+      renderChallengeText();
+      updateCounts();
+    }
+
+    function collectTargetCells() {
+      targetCells.clear();
+      document.querySelectorAll('.cell').forEach(cell => {
+        if (Number(cell.dataset.pc) === targetPC) targetCells.add(cell.dataset.key);
+      });
+    }
+
+    function updateCounts() {
+      els.foundCount.textContent = `${selectedCorrect.size}/${targetCells.size}`;
+      els.hitCount.textContent = stats.hits;
+      els.missCount.textContent = stats.misses;
+    }
+
+    function setMessage(text, type = '') {
+      els.message.textContent = text;
+      els.message.className = `message ${type}`.trim();
+    }
+
+    function closestCorrectMidiOnSameString(cell) {
+      const stringIndex = Number(cell.dataset.stringIndex);
+      const fret = Number(cell.dataset.fret);
+      const candidates = [];
+      document.querySelectorAll(`.cell[data-string-index="${stringIndex}"]`).forEach(c => {
+        if (Number(c.dataset.pc) === targetPC) candidates.push(c);
+      });
+      if (!candidates.length) return null;
+      candidates.sort((a, b) => Math.abs(Number(a.dataset.fret) - fret) - Math.abs(Number(b.dataset.fret) - fret));
+      return candidates[0];
+    }
+
+    async function handleCellClick(cell) {
+      await ensureAudio();
+      const pc = Number(cell.dataset.pc);
+      const midi = Number(cell.dataset.midi);
+      playMidi(midi, 0.48);
+
+      if (pc === targetPC) {
+        if (!selectedCorrect.has(cell.dataset.key)) {
+          selectedCorrect.add(cell.dataset.key);
+          stats.hits += 1;
+          cell.classList.add('correct');
+          setMessage(`Jó: ${noteName(pc)}.`, 'good');
+          updateCounts();
+          persist();
+
+          if (selectedCorrect.size === targetCells.size) {
+            setMessage(`Kész: az összes ${noteName(targetPC)} megvan. Jön a következő hang.`, 'good');
+            setTimeout(chooseNewTarget, 850);
+          }
+        } else {
+          setMessage('Ezt a helyet már bejelölted.', '');
+        }
+      } else {
+        stats.misses += 1;
+        cell.classList.add('wrong', 'flash');
+        updateCounts();
+        persist();
+        const correctCell = closestCorrectMidiOnSameString(cell);
+        setMessage(`Nem ez: ${noteName(pc)}. Most csak hangban meghallod utána a helyes célhangot.`, 'bad');
+        if (correctCell) {
+          setTimeout(() => {
+            playMidi(Number(correctCell.dataset.midi), 0.62, 1.05);
+          }, 520);
+        } else {
+          setTimeout(playRepresentativeTarget, 520);
+        }
+        setTimeout(() => cell.classList.remove('wrong', 'flash'), 650);
+      }
+    }
+
+    function playRepresentativeTarget() {
+      if (!audioReady) return;
+      const target = [...document.querySelectorAll('.cell')].find(c => Number(c.dataset.pc) === targetPC);
+      if (target) playMidi(Number(target.dataset.midi), 0.58, 1.05);
+    }
+
+    function persist() {
+      const data = {
+        instrument: els.instrument.value,
+        frets: els.frets.value,
+        noteSet: els.noteSet.value,
+        accidentalStyle: els.accidentalStyle.value,
+        notation: els.notation.value,
+        layout: els.layout.value,
+        stats,
+        showLabels
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function restore() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        ['instrument', 'frets', 'noteSet', 'accidentalStyle', 'notation', 'layout'].forEach(id => {
+          if (data[id] && els[id]) els[id].value = data[id];
+        });
+        if (data.stats) stats = { hits: Number(data.stats.hits || 0), misses: Number(data.stats.misses || 0) };
+        showLabels = Boolean(data.showLabels);
+      } catch (_) {}
+    }
+
+    function resetStats() {
+      stats = { hits: 0, misses: 0 };
+      updateCounts();
+      persist();
+      setMessage('Statisztika nullázva.');
+    }
+
+    function handleSettingsChanged() {
+      const allowed = getAllowedTargets();
+      if (!allowed.includes(targetPC)) targetPC = allowed[Math.floor(Math.random() * allowed.length)];
+      renderBoard();
+      persist();
+    }
+
+    els.enableAudio.addEventListener('click', async () => {
+      await ensureAudio();
+      playRepresentativeTarget();
+      setMessage('Hang bekapcsolva. Most már koppinthatsz a fogólapra.', 'good');
+    });
+    els.newChallenge.addEventListener('click', async () => { await ensureAudio(); chooseNewTarget(); });
+    els.replayTarget.addEventListener('click', async () => { await ensureAudio(); playRepresentativeTarget(); });
+    els.toggleLabels.addEventListener('click', () => {
+      showLabels = !showLabels;
+      els.toggleLabels.textContent = showLabels ? 'Hangnevek elrejtése' : 'Hangnevek mutatása';
+      els.fretboard.classList.toggle('show-labels', showLabels);
+      persist();
+    });
+    els.resetStats.addEventListener('click', resetStats);
+
+    ['instrument', 'frets', 'noteSet', 'accidentalStyle', 'notation', 'layout'].forEach(id => {
+      els[id].addEventListener('change', handleSettingsChanged);
+    });
+
+    restore();
+    targetPC = getAllowedTargets().includes(targetPC) ? targetPC : getAllowedTargets()[0];
+    renderBoard();
+    chooseNewTarget();
+    updateAudioStatus();
+    els.toggleLabels.textContent = showLabels ? 'Hangnevek elrejtése' : 'Hangnevek mutatása';
+  </script>
+</body>
+</html>
